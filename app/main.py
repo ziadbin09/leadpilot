@@ -83,7 +83,7 @@ def create_app(settings: Settings | None = None, llm=None, store=None, cal=None)
                 # past the cap: no LLM call, but still capture a willing lead's email
                 sess = s["session"]
                 sess["fields"] = replace(sess["fields"], email=email)
-                sess["lead_id"] = store.upsert_lead(sess["fields"])
+                sess["lead_id"] = store.upsert_lead(sess["fields"], sess["lead_id"])
                 return {"reply": f"Thanks! Our team will reach out to you at {email}."}
             s["history"].append({"role": "user", "content": body.message})
         return {"reply": chat_turn(s["history"], s["session"], store, cal, llm)}

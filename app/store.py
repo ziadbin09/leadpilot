@@ -4,8 +4,6 @@ from datetime import datetime, timezone
 
 from app.scoring import LeadFields, score_lead
 
-_FIELDS = ("name", "email", "need", "budget_usd", "timeline_days", "is_decision_maker")
-
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS leads (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -37,7 +35,13 @@ class Store:
             self._db.execute(_SCHEMA)
             self._db.commit()
 
-    def upsert_lead(self, f: LeadFields) -> int:
+    def upsert_lead(self, f: LeadFields, lead_id: int | None = None) -> int:
+        """Save a visitor's fields and return their row id.
+
+        An email that matches an existing lead merges into that lead (and drops the
+        session's own anonymous row, if any). Otherwise ``lead_id`` (the session's
+        row) is updated in place. Only when neither applies is a new row inserted.
+        """
         email = _norm_email(f.email)
         with self._lock:
             row = None
@@ -45,6 +49,15 @@ class Store:
                 row = self._db.execute(
                     "SELECT * FROM leads WHERE email = ?", (email,)
                 ).fetchone()
+            own = None
+            if lead_id is not None:
+                own = self._db.execute(
+                    "SELECT * FROM leads WHERE id = ?", (lead_id,)
+                ).fetchone()
+            if row is not None and own is not None and own["id"] != row["id"]                     and own["email"] is None:
+                self._db.execute("DELETE FROM leads WHERE id = ?", (own["id"],))
+            if row is None:
+                row = own
             if row is None:
                 merged = LeadFields(
                     need=f.need, budget_usd=f.budget_usd,
@@ -65,18 +78,18 @@ class Store:
                      merged.timeline_days, dm, score, tier,
                      datetime.now(timezone.utc).isoformat()),
                 )
-                lead_id = cur.lastrowid
+                out_id = cur.lastrowid
             else:
-                lead_id = row["id"]
+                out_id = row["id"]
                 self._db.execute(
-                    "UPDATE leads SET name = ?, need = ?, budget_usd = ?,"
+                    "UPDATE leads SET name = ?, email = ?, need = ?, budget_usd = ?,"
                     " timeline_days = ?, is_decision_maker = ?, score = ?, tier = ?"
                     " WHERE id = ?",
-                    (merged.name, merged.need, merged.budget_usd,
-                     merged.timeline_days, dm, score, tier, lead_id),
+                    (merged.name, merged.email, merged.need, merged.budget_usd,
+                     merged.timeline_days, dm, score, tier, out_id),
                 )
             self._db.commit()
-            return lead_id
+            return out_id
 
     @staticmethod
     def _merge(row: sqlite3.Row, f: LeadFields, email: str | None) -> LeadFields:
@@ -90,7 +103,7 @@ class Store:
             timeline_days=pick(f.timeline_days, row["timeline_days"]),
             is_decision_maker=pick(f.is_decision_maker,
                                    None if old_dm is None else bool(old_dm)),
-            email=email,
+            email=pick(email, row["email"]),
             name=pick(f.name, row["name"]),
         )
 

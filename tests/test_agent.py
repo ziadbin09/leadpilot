@@ -145,20 +145,32 @@ def test_booking_without_prior_save_creates_lead_row(env):
     assert len(rows) == 1 and rows[0]["booked_slot"] == slot
 
 
-def test_email_after_anonymous_fields_creates_at_most_one_extra_row(env):
+def test_one_row_per_visitor_across_turns(env):
     store, cal, session = env
+    history = []
+    for i, fact in enumerate([{"need": "app"}, {"budget_usd": 3000}, {"name": "Bo"}, {"email": "a@b.co"}]):
+        history.append({"role": "user", "content": "x"})
+        llm = StubLLM([msg(None, [tc("save_lead_fields", fact, id=f"c{i}")]), msg("ok")])
+        chat_turn(history, session, store, cal, llm)
+    rows = store.list_leads()
+    assert len(rows) == 1
+    r = rows[0]
+    assert (r["need"], r["budget_usd"], r["name"], r["email"]) == ("app", 3000, "Bo", "a@b.co")
+    assert session["lead_id"] == r["id"]
+
+
+def test_returning_email_merges_into_existing_lead(env):
+    store, cal, session = env
+    old = store.upsert_lead(LeadFields(email="a@b.co", name="Sam"))
     llm = StubLLM([
         msg(None, [tc("save_lead_fields", {"need": "app"}, id="a")]),
         msg(None, [tc("save_lead_fields", {"email": "a@b.co"}, id="b")]),
-        msg(None, [tc("save_lead_fields", {"budget_usd": 3000}, id="c")]),
         msg("ok"),
     ])
     chat_turn([{"role": "user", "content": "hi"}], session, store, cal, llm)
     rows = store.list_leads()
-    assert len(rows) == 2  # one anonymous partial row + one email-keyed row
-    emailed = [r for r in rows if r["email"] == "a@b.co"]
-    assert len(emailed) == 1 and emailed[0]["budget_usd"] == 3000
-    assert emailed[0]["need"] == "app"
+    assert len(rows) == 1 and rows[0]["id"] == old == session["lead_id"]
+    assert rows[0]["need"] == "app" and rows[0]["name"] == "Sam"
 
 
 def test_save_with_email_includes_free_slots(env):

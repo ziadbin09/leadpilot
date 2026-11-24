@@ -137,3 +137,25 @@ def test_capped_session_without_email_keeps_cap_reply():
     r = post(client, "no thanks")
     assert "please leave your email" in r.json()["reply"]
     assert client.get("/leads").json() == []
+
+
+class SaveNeedOnceLLM(StubLLM):
+    """First call saves a need via the tool, then plain replies."""
+
+    def create(self, messages, tools):
+        if not self.calls:
+            self.calls.append([dict(m) for m in messages])
+            call = SimpleNamespace(id="c1", type="function", function=SimpleNamespace(
+                name="save_lead_fields", arguments='{"need": "shop"}'))
+            return SimpleNamespace(content=None, tool_calls=[call])
+        return super().create(messages, tools)
+
+
+def test_capped_email_updates_the_sessions_anonymous_lead():
+    client, _ = make(SaveNeedOnceLLM())
+    for _ in range(20):
+        post(client)
+    post(client, "bo@x.io")
+    leads = client.get("/leads").json()
+    assert len(leads) == 1
+    assert leads[0]["email"] == "bo@x.io" and leads[0]["need"] == "shop"

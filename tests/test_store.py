@@ -65,3 +65,38 @@ def test_decision_maker_roundtrips_bool_and_none_and_order():
     assert [r["is_decision_maker"] for r in rows] == [None, True, False]
     assert rows[0]["id"] > rows[1]["id"] > rows[2]["id"]
     assert rows[0]["created_at"]
+
+
+def test_upsert_by_lead_id_updates_same_row():
+    s = Store(":memory:")
+    lid = s.upsert_lead(LeadFields(need="shop"))
+    assert s.upsert_lead(LeadFields(need="shop", budget_usd=6000), lead_id=lid) == lid
+    assert s.upsert_lead(LeadFields(need="shop", budget_usd=6000, email="Bo@x.io"), lead_id=lid) == lid
+    rows = s.list_leads()
+    assert len(rows) == 1
+    assert rows[0]["email"] == "bo@x.io" and rows[0]["budget_usd"] == 6000
+
+
+def test_email_of_existing_lead_merges_and_drops_anonymous_row():
+    s = Store(":memory:")
+    old = s.upsert_lead(LeadFields(email="bo@x.io", name="Bo"))
+    anon = s.upsert_lead(LeadFields(need="shop"))
+    got = s.upsert_lead(LeadFields(need="shop", email="bo@x.io"), lead_id=anon)
+    assert got == old
+    rows = s.list_leads()
+    assert len(rows) == 1
+    assert rows[0]["name"] == "Bo" and rows[0]["need"] == "shop"
+
+
+def test_email_match_never_deletes_another_emailed_row():
+    s = Store(":memory:")
+    a = s.upsert_lead(LeadFields(email="a@x.io"))
+    b = s.upsert_lead(LeadFields(email="b@x.io"))
+    assert s.upsert_lead(LeadFields(email="b@x.io"), lead_id=a) == b
+    assert len(s.list_leads()) == 2
+
+
+def test_unknown_lead_id_inserts():
+    s = Store(":memory:")
+    lid = s.upsert_lead(LeadFields(need="x"), lead_id=999)
+    assert [r["id"] for r in s.list_leads()] == [lid]

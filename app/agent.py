@@ -104,7 +104,7 @@ def _save_lead_fields(args: dict, session: dict, store: Store, cal: Calendar) ->
     clean, errors = _clean(args)
     if clean:
         session["fields"] = replace(session["fields"], **clean)
-        session["lead_id"] = store.upsert_lead(session["fields"])
+        session["lead_id"] = store.upsert_lead(session["fields"], session["lead_id"])
     result: dict = {"ok": bool(clean) or not errors}
     if errors:
         result["errors"] = errors
@@ -126,7 +126,7 @@ def _book_meeting(args: dict, session: dict, store: Store, cal: Calendar) -> dic
         cal.book(slot, name, fields.email)
     except (SlotTakenError, ValueError):
         return {"error": "That slot is not available.", "free_slots": cal.free_slots()}
-    session["lead_id"] = store.upsert_lead(fields)  # idempotent; ensures the row exists
+    session["lead_id"] = store.upsert_lead(fields, session["lead_id"])  # ensures the row exists
     store.add_booking(session["lead_id"], slot)
     return {"ok": True, "booked": slot}
 
