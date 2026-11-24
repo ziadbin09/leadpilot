@@ -115,3 +115,25 @@ def test_index_served():
     r = client.get("/")
     assert r.status_code == 200 and "LeadPilot" in r.text
     assert client.get("/static/app.js").status_code == 200
+
+
+def test_capped_session_captures_email_without_llm():
+    llm = StubLLM()
+    client, _ = make(llm)
+    for _ in range(20):
+        post(client)
+    r = post(client, "sure, it's sara@example.com.")
+    assert r.status_code == 200
+    assert "sara@example.com" in r.json()["reply"] and "reach out" in r.json()["reply"]
+    assert len(llm.calls) == 20
+    leads = client.get("/leads").json()
+    assert [l["email"] for l in leads] == ["sara@example.com"]
+
+
+def test_capped_session_without_email_keeps_cap_reply():
+    client, _ = make(StubLLM())
+    for _ in range(20):
+        post(client)
+    r = post(client, "no thanks")
+    assert "please leave your email" in r.json()["reply"]
+    assert client.get("/leads").json() == []

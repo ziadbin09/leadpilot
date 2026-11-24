@@ -1,5 +1,6 @@
 import logging
 import threading
+from dataclasses import replace
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -7,7 +8,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
-from app.agent import chat_turn
+from app.agent import EMAIL_RE, chat_turn
 from app.calendars import get_calendar
 from app.config import Settings, load_settings
 from app.llm import OpenAICompatLLM
@@ -24,6 +25,15 @@ CAP_REPLY = (
     "and our team will reach out."
 )
 NOT_CONFIGURED = "Server not configured: copy .env.example to .env and set LLM_API_KEY."
+
+
+def _find_email(text: str) -> str | None:
+    # reuse the agent's (anchored) email pattern on each whitespace-separated token
+    for token in text.split():
+        token = token.strip(".,;:!?()<>\"'")
+        if EMAIL_RE.match(token):
+            return token
+    return None
 
 
 class ChatIn(BaseModel):
@@ -67,7 +77,14 @@ def create_app(settings: Settings | None = None, llm=None, store=None, cal=None)
                 }
             s["user_messages"] += 1
             if s["user_messages"] > MAX_USER_MESSAGES:
-                return {"reply": CAP_REPLY}
+                email = _find_email(body.message)
+                if not email:
+                    return {"reply": CAP_REPLY}
+                # past the cap: no LLM call, but still capture a willing lead's email
+                sess = s["session"]
+                sess["fields"] = replace(sess["fields"], email=email)
+                sess["lead_id"] = store.upsert_lead(sess["fields"])
+                return {"reply": f"Thanks! Our team will reach out to you at {email}."}
             s["history"].append({"role": "user", "content": body.message})
         return {"reply": chat_turn(s["history"], s["session"], store, cal, llm)}
 
