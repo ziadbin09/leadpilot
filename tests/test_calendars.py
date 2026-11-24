@@ -66,3 +66,89 @@ def test_get_calendar_defaults_to_fake():
 def test_get_calendar_uses_google_when_configured():
     s = Settings("u", None, "m", "creds.json")
     assert isinstance(get_calendar(s), GoogleCalendar)  # lazy: no import/credentials yet
+
+
+class _Exec:
+    def __init__(self, result):
+        self.result = result
+
+    def execute(self):
+        return self.result
+
+
+class FakeService:
+    """Stands in for the Google Calendar API client; no network."""
+
+    def __init__(self, busy=(), errors=None):
+        self.busy, self.errors = list(busy), errors
+        self.queries, self.inserted = [], []
+
+    def freebusy(self):
+        return self
+
+    def events(self):
+        return self
+
+    def query(self, body):
+        self.queries.append(body)
+        cal = {"busy": self.busy}
+        if self.errors:
+            cal["errors"] = self.errors
+        return _Exec({"calendars": {body["items"][0]["id"]: cal}})
+
+    def insert(self, calendarId, body):
+        self.inserted.append((calendarId, body))
+        return _Exec({"id": "evt"})
+
+
+def google(service, calendar_id="owner@gmail.com"):
+    cal = GoogleCalendar("creds.json", calendar_id=calendar_id, now=lambda: NOW)
+    cal._service = lambda: service
+    return cal
+
+
+def test_google_books_offered_slot_on_configured_calendar():
+    svc = FakeService()
+    cal = google(svc)
+    slot = cal.free_slots(1)[0]
+    assert slot == "2026-11-25T10:00:00+00:00"
+    cal.book(slot, "Sara", "sara@example.com")
+    assert svc.inserted[0][0] == "owner@gmail.com"
+    assert svc.queries[0]["items"] == [{"id": "owner@gmail.com"}]
+
+
+@pytest.mark.parametrize("slot", [
+    "2026-11-20T10:00:00+00:00",  # past
+    "2026-11-28T10:00:00+00:00",  # Saturday
+    "2026-11-25T03:00:00+00:00",  # off-grid hour
+    "2026-11-24T14:00:00+00:00",  # today (slots start tomorrow)
+])
+def test_google_rejects_slots_outside_the_grid(slot):
+    svc = FakeService()
+    with pytest.raises(ValueError):
+        google(svc).book(slot, "Sara", "sara@example.com")
+    assert svc.inserted == []
+
+
+def test_google_busy_slot_raises_taken():
+    svc = FakeService(busy=[{"start": "2026-11-25T10:00:00Z", "end": "2026-11-25T11:00:00Z"}])
+    cal = google(svc)
+    assert "2026-11-25T10:00:00+00:00" not in cal.free_slots(3)
+    with pytest.raises(SlotTakenError):
+        cal.book("2026-11-25T10:00:00+00:00", "Sara", "sara@example.com")
+    assert svc.inserted == []
+
+
+def test_google_freebusy_errors_are_not_treated_as_free():
+    svc = FakeService(errors=[{"domain": "global", "reason": "notFound"}])
+    cal = google(svc)
+    with pytest.raises(RuntimeError):
+        cal.free_slots(3)
+    with pytest.raises(RuntimeError):
+        cal.book("2026-11-25T10:00:00+00:00", "Sara", "sara@example.com")
+    assert svc.inserted == []
+
+
+def test_get_calendar_passes_calendar_id():
+    s = Settings("u", None, "m", "creds.json", google_calendar_id="owner@gmail.com")
+    assert get_calendar(s)._calendar_id == "owner@gmail.com"

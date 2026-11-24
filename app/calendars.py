@@ -8,6 +8,7 @@ from app.config import Settings
 SLOT_HOURS = (10, 14, 16)  # UTC
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 MEETING_MINUTES = 30
+HORIZON = 60  # candidate slots considered (~4 weeks)
 
 
 class SlotTakenError(Exception):
@@ -50,9 +51,15 @@ def _candidates(now: datetime, limit: int) -> list[datetime]:
     return out  # unreachable
 
 
-class FakeCalendar:
-    HORIZON = 60  # candidate slots considered (~4 weeks)
+def _offerable(slot_iso: str, now: datetime) -> datetime:
+    """Parse and require a future grid slot (weekday 10/14/16 UTC, from tomorrow)."""
+    slot = _parse_slot(slot_iso)
+    if slot not in set(_candidates(now, HORIZON)):
+        raise ValueError("not an offered slot")
+    return slot
 
+
+class FakeCalendar:
     def __init__(self, now: Callable[[], datetime] = lambda: datetime.now(timezone.utc)):
         self._now = now
         self._booked: set[str] = set()
@@ -64,14 +71,12 @@ class FakeCalendar:
     def free_slots(self, n: int = 3) -> list[str]:
         with self._lock:
             booked = set(self._booked)
-        free = [s.isoformat() for s in _candidates(self._now(), self.HORIZON)]
+        free = [s.isoformat() for s in _candidates(self._now(), HORIZON)]
         return [s for s in free if s not in booked][:n]
 
     def book(self, slot_iso: str, name: str, email: str) -> str:
-        slot = _parse_slot(slot_iso).isoformat()
+        slot = _offerable(slot_iso, self._now()).isoformat()
         with self._lock:
-            if slot not in {s.isoformat() for s in _candidates(self._now(), self.HORIZON)}:
-                raise ValueError("not an offered slot")
             if slot in self._booked:
                 raise SlotTakenError(slot)
             self._booked.add(slot)
@@ -81,9 +86,18 @@ class FakeCalendar:
 class GoogleCalendar:
     """Service-account backed calendar. Google libraries are imported lazily."""
 
-    def __init__(self, credentials_file: str, calendar_id: str = "primary"):
+    def __init__(
+        self,
+        credentials_file: str,
+        calendar_id: str = "primary",
+        now: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+    ):
         self._credentials_file = credentials_file
         self._calendar_id = calendar_id
+        self._now = now
+
+    def now(self) -> datetime:
+        return self._now()
 
     def _service(self):
         from google.oauth2 import service_account
@@ -101,7 +115,11 @@ class GoogleCalendar:
             "items": [{"id": self._calendar_id}],
         }
         resp = service.freebusy().query(body=body).execute()
-        busy = resp["calendars"][self._calendar_id]["busy"]
+        cal = resp["calendars"][self._calendar_id]
+        if cal.get("errors"):
+            # e.g. calendar not shared with the service account: never treat as free
+            raise RuntimeError("free/busy lookup failed for the configured calendar")
+        busy = cal.get("busy", [])
         return [
             (_parse_slot(b["start"].replace("Z", "+00:00")), _parse_slot(b["end"].replace("Z", "+00:00")))
             for b in busy
@@ -114,12 +132,12 @@ class GoogleCalendar:
 
     def free_slots(self, n: int = 3) -> list[str]:
         service = self._service()
-        cands = _candidates(datetime.now(timezone.utc), 60)
+        cands = _candidates(self._now(), HORIZON)
         busy = self._busy(service, cands[0], cands[-1] + timedelta(minutes=MEETING_MINUTES))
         return [s.isoformat() for s in cands if not self._overlaps(s, busy)][:n]
 
     def book(self, slot_iso: str, name: str, email: str) -> str:
-        slot = _parse_slot(slot_iso)
+        slot = _offerable(slot_iso, self._now())
         service = self._service()
         end = slot + timedelta(minutes=MEETING_MINUTES)
         if self._overlaps(slot, self._busy(service, slot, end)):
@@ -136,5 +154,5 @@ class GoogleCalendar:
 
 def get_calendar(s: Settings) -> Calendar:
     if s.google_credentials_file:
-        return GoogleCalendar(s.google_credentials_file)
+        return GoogleCalendar(s.google_credentials_file, s.google_calendar_id)
     return FakeCalendar()

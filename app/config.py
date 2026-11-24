@@ -14,13 +14,15 @@ class Settings:
     api_key: str | None
     model: str
     google_credentials_file: str | None
+    google_calendar_id: str = "primary"
 
     def __repr__(self) -> str:
         key = "'***'" if self.api_key else "None"
         return (
             f"Settings(base_url={self.base_url!r}, api_key={key}, "
             f"model={self.model!r}, "
-            f"google_credentials_file={self.google_credentials_file!r})"
+            f"google_credentials_file={self.google_credentials_file!r}, "
+            f"google_calendar_id={self.google_calendar_id!r})"
         )
 
 
@@ -32,4 +34,5 @@ def load_settings(env: Mapping[str, str] = os.environ) -> Settings:
         api_key=env.get("LLM_API_KEY") or None,
         model=env.get("LLM_MODEL") or DEFAULT_MODEL,
         google_credentials_file=env.get("GOOGLE_CREDENTIALS_FILE") or None,
+        google_calendar_id=env.get("GOOGLE_CALENDAR_ID") or "primary",
     )

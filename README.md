@@ -103,9 +103,10 @@ Without setup, LeadPilot uses a fake demo calendar. To use a real one:
 
 1. In Google Cloud, create a service account, enable the Google Calendar API, and download the service account JSON key.
 2. Save the file somewhere outside git (for example `credentials.json`, which is git-ignored) and set `GOOGLE_CREDENTIALS_FILE` in `.env` to its path.
-3. In Google Calendar, share your calendar with the service account's email address and give it permission to make changes to events.
+3. In Google Calendar, open your calendar's **Settings and sharing**, share it with the service account's email address and choose **Make changes to events**.
+4. On the same page, copy the **Calendar ID** (for your main calendar this is usually your Gmail address) and set `GOOGLE_CALENDAR_ID` in `.env` to it. Leaving it as `primary` would book into the service account's own calendar, which you cannot see.
 
-Meetings are 30 minutes, in UTC. The free/busy check right before booking is best-effort: it greatly reduces double-booking, but it is not a transaction.
+Meetings are 30 minutes, in UTC, on weekdays at 10:00, 14:00 and 16:00. If Google cannot read the calendar's free/busy data, LeadPilot refuses to offer or book times rather than guessing. The free/busy check right before booking is best-effort: it greatly reduces double-booking, but it is not a transaction.
 
 ## Limitations
 
