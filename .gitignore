@@ -1,0 +1,16 @@
+# Secrets: never commit these
+.env
+.env.local
+credentials*.json
+token*.json
+
+# Local data
+*.db
+
+# Python
+__pycache__/
+.venv/
+.pytest_cache/
+
+# Agent scratch
+.superpowers/

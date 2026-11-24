@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LeadPilot Design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Black and orange: one dark theme by design */
+  :root {
+    color-scheme: dark;
+    --bg: #070707; --surface: #111111; --surface-2: #1a1a1a; --border: #262626;
+    --text: #f5f5f4; --muted: #a3a3a3;
+    --accent: #ff7a1a; --accent-2: #ffb020; --accent-soft: rgba(255, 122, 26, .12); --on-accent: #0a0a0a;
+    --hot: #ff5533; --hot-soft: rgba(255, 85, 51, .14);
+    --warm: #ffc233; --warm-soft: rgba(255, 194, 51, .13);
+    --cold: #8b95a7; --cold-soft: rgba(139, 149, 167, .14);
+    --ok: #4ade80; --ok-soft: rgba(74, 222, 128, .12);
+    --glow: 0 0 0 1px rgba(255,122,26,.25), 0 20px 60px rgba(255,122,26,.12);
+    --radius: 14px;
+  }
+  @property --p { syntax: "<number>"; inherits: false; initial-value: 0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 Inter, system-ui, sans-serif; overflow-x: hidden; }
+  button { font: inherit; cursor: pointer; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  code { color: var(--accent-2); }
+
+  /* Animated background: drifting glow blobs over a faint grid */
+  .bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+  .bg::before { content: ""; position: absolute; inset: 0;
+    background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+    background-size: 44px 44px; mask-image: radial-gradient(ellipse at 50% 30%, #000 30%, transparent 75%); animation: gridmove 20s linear infinite; }
+  .blob { position: absolute; width: 520px; height: 520px; border-radius: 50%; filter: blur(90px); opacity: .35; }
+  .b1 { background: var(--accent); top: -180px; left: -120px; animation: drift1 16s ease-in-out infinite alternate; }
+  .b2 { background: #ff3d00; bottom: -220px; right: -140px; opacity: .25; animation: drift2 19s ease-in-out infinite alternate; }
+  .b3 { background: var(--accent-2); top: 35%; left: 45%; width: 320px; height: 320px; opacity: .12; animation: drift1 23s ease-in-out infinite alternate-reverse; }
+  @keyframes drift1 { to { transform: translate(140px, 90px) scale(1.15); } }
+  @keyframes drift2 { to { transform: translate(-160px, -110px) scale(1.1); } }
+  @keyframes gridmove { to { background-position: 44px 44px; } }
+
+  /* App bar */
+  .bar { display: flex; align-items: center; gap: 16px; padding: 14px 24px; background: rgba(7,7,7,.75); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 5; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: -.01em; }
+  .logo { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); display: grid; place-items: center; font-size: 15px; animation: pulse 2.8s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,122,26,.5); } 50% { box-shadow: 0 0 0 8px rgba(255,122,26,0); } }
+  .tabs { position: relative; display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 10px; margin-left: auto; }
+  .tab { position: relative; z-index: 1; border: 0; background: none; color: var(--muted); padding: 7px 14px; border-radius: 7px; font-weight: 500; transition: color .25s; }
+  .tab[aria-selected="true"] { color: var(--on-accent); }
+  .pill { position: absolute; top: 4px; bottom: 4px; border-radius: 7px; background: var(--accent); transition: left .35s cubic-bezier(.4,1.3,.5,1), width .35s cubic-bezier(.4,1.3,.5,1); }
+  .view { display: none; }
+  .view.active { display: block; animation: viewin .45s ease both; }
+  @keyframes viewin { from { opacity: 0; transform: translateY(10px); } }
+
+  /* Visitor view */
+  .site { max-width: 1100px; margin: 0 auto; padding: 56px 24px 120px; display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: start; }
+  .eyebrow { color: var(--accent); font-weight: 600; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
+  .site h1 { font-size: 46px; line-height: 1.08; margin: 10px 0 16px; letter-spacing: -.03em; font-weight: 800; }
+  .shine { background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 30%, #fff3e0 50%, var(--accent-2) 70%, var(--accent) 100%); background-size: 250% auto;
+    -webkit-background-clip: text; background-clip: text; color: transparent; animation: shine 5s linear infinite; }
+  @keyframes shine { to { background-position: -250% center; } }
+  .site p.lead { color: var(--muted); font-size: 17px; max-width: 46ch; }
+  .rise { opacity: 0; animation: rise .7s cubic-bezier(.2,.8,.2,1) forwards; }
+  @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+  .chip { background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; font-size: 13px; color: var(--muted); transition: border-color .2s, color .2s, transform .2s; }
+  .chip:hover { border-color: var(--accent); color: var(--text); transform: translateY(-2px); }
+  .chip::before { content: "●"; color: var(--accent); margin-right: 6px; font-size: 9px; vertical-align: 2px; }
+  .note { margin-top: 32px; padding: 14px 16px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 8px; font-size: 13px; color: var(--muted); max-width: 52ch; }
+
+  /* Chat widget */
+  .chat { position: relative; background: var(--surface); border-radius: 18px; box-shadow: var(--glow); display: flex; flex-direction: column; height: 600px; overflow: hidden; opacity: 0; animation: rise .7s .25s cubic-bezier(.2,.8,.2,1) forwards, floaty 6s 1s ease-in-out infinite; }
+  .chat::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
+    background: conic-gradient(from var(--a, 0deg), transparent 0 70%, var(--accent) 85%, transparent 100%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: spin 6s linear infinite; }
+  @property --a { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+  @keyframes spin { to { --a: 360deg; } }
+  @keyframes floaty { 50% { transform: translateY(-6px); } }
+  .chat-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); display: grid; place-items: center; font-weight: 800; }
+  .chat-head .name { font-weight: 600; }
+  .chat-head .status { font-size: 12px; color: var(--ok); display: flex; align-items: center; gap: 6px; }
+  .chat-head .status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); animation: blink 1.6s ease-in-out infinite; }
+  @keyframes blink { 50% { opacity: .3; } }
+  .replay { margin-left: auto; border: 1px solid var(--border); background: var(--surface-2); color: var(--muted); border-radius: 8px; padding: 4px 10px; font-size: 12px; transition: color .2s, border-color .2s; }
+  .replay:hover { color: var(--accent); border-color: var(--accent); }
+  .msgs { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; scroll-behavior: smooth; }
+  .msgs > * { animation: pop .4s cubic-bezier(.2,.9,.3,1.3) both; }
+  .msgs > .hidden { display: none; }
+  @keyframes pop { from { opacity: 0; transform: translateY(10px) scale(.96); } }
+  .msg { max-width: 82%; padding: 10px 13px; border-radius: 14px; font-size: 14px; }
+  .bot { background: var(--surface-2); border-bottom-left-radius: 4px; align-self: flex-start; }
+  .me { background: linear-gradient(135deg, var(--accent), #ff9a3d); color: var(--on-accent); font-weight: 500; border-bottom-right-radius: 4px; align-self: flex-end; }
+  .typing { align-self: flex-start; background: var(--surface-2); border-radius: 14px; border-bottom-left-radius: 4px; padding: 12px 14px; display: flex; gap: 4px; }
+  .typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: dots 1s ease-in-out infinite; }
+  .typing i:nth-child(2) { animation-delay: .15s; } .typing i:nth-child(3) { animation-delay: .3s; }
+  @keyframes dots { 0%,60%,100% { transform: translateY(0); opacity: .4; } 30% { transform: translateY(-5px); opacity: 1; } }
+  .saved { align-self: flex-start; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; padding: 3px 10px 3px 4px; border-radius: 999px; background: var(--accent-soft); }
+  .saved::before { content: "✓"; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-size: 10px; font-weight: 800; }
+  .saved b { color: var(--accent-2); font-weight: 600; }
+  .slots { display: flex; flex-direction: column; gap: 6px; align-self: flex-start; width: 82%; }
+  .slot { text-align: left; border: 1px solid var(--border); background: var(--surface); color: var(--text); padding: 9px 12px; border-radius: 10px; font-size: 14px; display: flex; justify-content: space-between; transition: border-color .2s, background .2s, transform .2s; }
+  .slot span { color: var(--muted); }
+  .slot:hover { border-color: var(--accent); transform: translateX(4px); }
+  .slot.picked { border-color: var(--accent); background: var(--accent-soft); }
+  .slot.picked span { color: var(--accent); }
+  .confirm { position: relative; overflow: hidden; align-self: stretch; border: 1px solid var(--accent); background: var(--accent-soft); border-radius: 12px; padding: 12px 14px; font-size: 14px; }
+  .confirm strong { color: var(--accent); }
+  .confirm::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255,176,32,.25) 50%, transparent 70%); transform: translateX(-100%); animation: sweep 1.4s .2s ease-out forwards; }
+  @keyframes sweep { to { transform: translateX(100%); } }
+  .composer { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--border); }
+  .composer input { flex: 1; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); border-radius: 10px; padding: 10px 12px; font: inherit; transition: border-color .2s; }
+  .composer input:focus { border-color: var(--accent); }
+  .send { border: 0; background: var(--accent); color: var(--on-accent); border-radius: 10px; padding: 0 16px; font-weight: 700; transition: transform .15s, background .2s; }
+  .send:hover { background: var(--accent-2); transform: scale(1.04); }
+  .powered { text-align: center; font-size: 11px; color: var(--muted); padding: 0 0 10px; }
+  .sr { position: absolute; left: -9999px; }
+
+  /* Owner dashboard */
+  .dash { max-width: 1180px; margin: 0 auto; padding: 28px 24px 60px; }
+  .dash h2 { margin: 0 0 4px; font-size: 26px; letter-spacing: -.02em; font-weight: 800; }
+  .sub { color: var(--muted); margin: 0 0 22px; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+  .stat { position: relative; overflow: hidden; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; transition: transform .25s, border-color .25s; }
+  .stat:hover { transform: translateY(-3px); border-color: var(--accent); }
+  .stat::after { content: ""; position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transform: scaleX(0); transform-origin: left; transition: transform .8s .2s ease; }
+  .active .stat::after { transform: scaleX(1); }
+  .stat .label { color: var(--muted); font-size: 13px; }
+  .stat .value { font-size: 30px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .stat .delta { font-size: 12px; color: var(--accent-2); }
+  .grid { display: grid; grid-template-columns: 1fr 340px; gap: 16px; align-items: start; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .card-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--border); font-weight: 600; }
+  .filters { display: flex; gap: 6px; }
+  .filter { border: 1px solid var(--border); background: var(--surface); color: var(--muted); border-radius: 999px; padding: 3px 10px; font-size: 12px; transition: all .2s; }
+  .filter:hover { border-color: var(--accent); color: var(--text); }
+  .filter[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; padding: 10px 18px; background: var(--surface-2); }
+  td { padding: 12px 18px; border-top: 1px solid var(--border); }
+  tbody tr { cursor: pointer; transition: background .2s; }
+  .active tbody tr { animation: rise .5s cubic-bezier(.2,.8,.2,1) both; }
+  .active tbody tr:nth-child(2) { animation-delay: .08s; } .active tbody tr:nth-child(3) { animation-delay: .16s; }
+  .active tbody tr:nth-child(4) { animation-delay: .24s; } .active tbody tr:nth-child(5) { animation-delay: .32s; }
+  tbody tr:hover { background: var(--surface-2); }
+  tbody tr.sel { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+  .who b { display: block; font-weight: 600; }
+  .who span { color: var(--muted); font-size: 12px; }
+  .num { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; text-transform: capitalize; }
+  .hot { background: var(--hot-soft); color: var(--hot); animation: hotglow 2s ease-in-out infinite; }
+  @keyframes hotglow { 50% { box-shadow: 0 0 10px rgba(255,85,51,.45); } }
+  .warm { background: var(--warm-soft); color: var(--warm); }
+  .cold { background: var(--cold-soft); color: var(--cold); }
+  .booked { color: var(--ok); font-weight: 500; }
+  .pending { color: var(--muted); }
+  .detail { padding: 18px; }
+  .score-ring { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+  .ring { --p: 0; width: 68px; height: 68px; border-radius: 50%; background: conic-gradient(var(--accent) calc(var(--p) * 1%), var(--surface-2) 0); display: grid; place-items: center; transition: --p 1.4s cubic-bezier(.2,.8,.2,1); filter: drop-shadow(0 0 10px rgba(255,122,26,.35)); }
+  .ring span { width: 54px; height: 54px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; font-weight: 800; font-size: 19px; }
+  .breakdown { list-style: none; padding: 0; margin: 0 0 16px; }
+  .breakdown li { position: relative; display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed var(--border); font-size: 14px; }
+  .breakdown li span:last-child { font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .bar-fill { position: absolute; left: 0; bottom: -1px; height: 2px; background: var(--accent); width: 0; transition: width 1s ease; }
+  .why { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .kv { font-size: 13px; color: var(--muted); margin: 4px 0; }
+  .kv b { color: var(--text); font-weight: 500; }
+
+  @media (max-width: 900px) {
+    .site, .grid { grid-template-columns: 1fr; }
+    .site h1 { font-size: 36px; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .hide-sm { display: none; }
+  }
+  @media (max-width: 520px) {
+    .bar { padding: 12px 16px; }
+    .site, .dash { padding-left: 16px; padding-right: 16px; }
+    .brand-text { display: none; }
+    .chat { height: 560px; }
+    th, td { padding: 10px 12px; }
+    .blob { width: 320px; height: 320px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    .rise, .chat { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+<div class="bg" aria-hidden="true"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+
+<header class="bar">
+  <div class="brand"><div class="logo" aria-hidden="true">◆</div><span class="brand-text">LeadPilot</span></div>
+  <div class="tabs" role="tablist" aria-label="Mockup view">
+    <span class="pill" aria-hidden="true"></span>
+    <button class="tab" role="tab" aria-selected="true" data-view="visitor">Visitor chat</button>
+    <button class="tab" role="tab" aria-selected="false" data-view="owner">Owner dashboard</button>
+  </div>
+</header>
+
+<!-- VISITOR VIEW -->
+<main id="visitor" class="view active">
+  <section class="site">
+    <div>
+      <div class="eyebrow rise">Demo client · Northwind Studio (fictional)</div>
+      <h1 class="rise" style="animation-delay:.1s">Websites and apps that <span class="shine">actually bring in customers.</span></h1>
+      <p class="lead rise" style="animation-delay:.2s">Tell our assistant what you need. It asks a few quick questions and books a call with our team, any time of day.</p>
+      <div class="chips rise" style="animation-delay:.3s"><span class="chip">Replies in seconds</span><span class="chip">Books straight to the calendar</span><span class="chip">Scores every lead</span></div>
+      <p class="note rise" style="animation-delay:.4s">Design mockup with sample data. In the real app, this chat talks to Gemini through the FastAPI backend, and the dashboard reads from <code>/leads</code>.</p>
+    </div>
+
+    <div class="chat" aria-label="Chat with the assistant">
+      <div class="chat-head">
+        <div class="avatar" aria-hidden="true">A</div>
+        <div><div class="name">Ava, project assistant</div><div class="status">Online</div></div>
+        <button class="replay" id="replay">↻ Replay</button>
+      </div>
+      <div class="msgs" id="msgs" role="log" aria-live="polite">
+        <div class="msg bot">Hi! 👋 What are you looking to build?</div>
+        <div class="msg me">An online store for my clothing brand</div>
+        <div class="saved">Saved <b>need</b></div>
+        <div class="msg bot">Nice! Roughly what budget do you have in mind?</div>
+        <div class="msg me">around 6k</div>
+        <div class="saved">Saved <b>budget $6,000</b></div>
+        <div class="msg bot">And when would you like it live? Are you the one making the final call?</div>
+        <div class="msg me">Within a month, yes it's my business</div>
+        <div class="saved">Saved <b>timeline 30 days</b> · <b>decision maker</b></div>
+        <div class="msg bot">Perfect. What's your name and email so I can book you a call?</div>
+        <div class="msg me">Sara, sara@example.com</div>
+        <div class="msg bot">Thanks Sara! Pick a time that works:</div>
+        <div class="slots">
+          <button class="slot">Tue 26 Nov <span>10:00 UTC</span></button>
+          <button class="slot picked">Tue 26 Nov <span>14:00 UTC</span></button>
+          <button class="slot">Wed 27 Nov <span>10:00 UTC</span></button>
+        </div>
+        <div class="confirm"><strong>✓ Call booked</strong><br>Tue 26 Nov, 14:00 UTC. A calendar invite is on its way to sara@example.com.</div>
+      </div>
+      <form class="composer" onsubmit="return false">
+        <label for="m" class="sr">Message</label>
+        <input id="m" placeholder="Type your message…" maxlength="1000" autocomplete="off">
+        <button class="send">Send</button>
+      </form>
+      <div class="powered">AI assistant · your details are used only to contact you</div>
+    </div>
+  </section>
+</main>
+
+<!-- OWNER VIEW -->
+<main id="owner" class="view">
+  <section class="dash">
+    <h2>Leads</h2>
+    <p class="sub">Every chat, scored and ready to follow up.</p>
+
+    <div class="stats">
+      <div class="stat"><div class="label">Total leads</div><div class="value" data-count="24">24</div><div class="delta">+6 this week</div></div>
+      <div class="stat"><div class="label">Hot leads</div><div class="value" data-count="7">7</div><div class="delta">29% of total</div></div>
+      <div class="stat"><div class="label">Calls booked</div><div class="value" data-count="9">9</div><div class="delta">38% booking rate</div></div>
+      <div class="stat"><div class="label">Avg. score</div><div class="value" data-count="58">58</div><div class="delta">+4 vs last week</div></div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="card-head">
+          <span>Recent leads</span>
+          <div class="filters" role="group" aria-label="Filter by tier">
+            <button class="filter" aria-pressed="true">All</button>
+            <button class="filter" aria-pressed="false">Hot</button>
+            <button class="filter" aria-pressed="false">Warm</button>
+            <button class="filter" aria-pressed="false">Cold</button>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>Lead</th><th class="hide-sm">Need</th><th>Score</th><th>Tier</th><th class="hide-sm">Meeting</th></tr></thead>
+          <tbody>
+            <tr class="sel"><td class="who"><b>Sara Khan</b><span>sara@example.com</span></td><td class="hide-sm">Online store</td><td class="num">100</td><td><span class="badge hot">hot</span></td><td class="hide-sm booked">Tue 26, 14:00</td></tr>
+            <tr><td class="who"><b>Omar Ali</b><span>omar@example.com</span></td><td class="hide-sm">Booking app</td><td class="num">75</td><td><span class="badge hot">hot</span></td><td class="hide-sm booked">Wed 27, 10:00</td></tr>
+            <tr><td class="who"><b>Lena Park</b><span>lena@example.com</span></td><td class="hide-sm">Landing page</td><td class="num">55</td><td><span class="badge warm">warm</span></td><td class="hide-sm pending">Not booked</td></tr>
+            <tr><td class="who"><b>Diego Ruiz</b><span>diego@example.com</span></td><td class="hide-sm">Chatbot</td><td class="num">45</td><td><span class="badge warm">warm</span></td><td class="hide-sm booked">Thu 28, 16:00</td></tr>
+            <tr><td class="who"><b>Anonymous</b><span>no email yet</span></td><td class="hide-sm">Logo design</td><td class="num">15</td><td><span class="badge cold">cold</span></td><td class="hide-sm pending">Not booked</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <aside class="card">
+        <div class="card-head"><span>Why Sara scored 100</span></div>
+        <div class="detail">
+          <div class="score-ring">
+            <div class="ring" id="ring"><span data-count="100">100</span></div>
+            <div><span class="badge hot">hot</span><div class="why">Score from clear rules, not AI guesswork</div></div>
+          </div>
+          <ul class="breakdown">
+            <li><span>Budget $6,000 (≥ $5k)</span><span>+40</span><i class="bar-fill" data-w="40"></i></li>
+            <li><span>Timeline 30 days (≤ 30)</span><span>+30</span><i class="bar-fill" data-w="30"></i></li>
+            <li><span>Decision maker</span><span>+20</span><i class="bar-fill" data-w="20"></i></li>
+            <li><span>Clear need stated</span><span>+10</span><i class="bar-fill" data-w="10"></i></li>
+          </ul>
+          <p class="kv">Need: <b>Online store for a clothing brand</b></p>
+          <p class="kv">Meeting: <b class="booked">Tue 26 Nov, 14:00 UTC</b></p>
+          <p class="kv">Captured: <b>24 Nov, 09:12</b></p>
+        </div>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<script>
+  // Mockup only: tab switching, chat replay and dashboard count-ups.
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+
+  // Sliding tab pill
+  const pill = document.querySelector('.pill');
+  const movePill = t => { pill.style.left = t.offsetLeft + 'px'; pill.style.width = t.offsetWidth + 'px'; };
+  const tabs = document.querySelectorAll('.tab');
+  tabs.forEach(t => t.addEventListener('click', () => {
+    tabs.forEach(x => x.setAttribute('aria-selected', x === t));
+    movePill(t);
+    document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === t.dataset.view));
+    if (t.dataset.view === 'owner') animateDashboard();
+  }));
+  addEventListener('load', () => movePill(document.querySelector('.tab[aria-selected="true"]')));
+  addEventListener('resize', () => movePill(document.querySelector('.tab[aria-selected="true"]')));
+
+  // Chat replay: typing dots before each bot message
+  const msgs = document.getElementById('msgs');
+  const items = [...msgs.children];
+  let run = 0;
+  async function playChat() {
+    const id = ++run;
+    if (still) return;
+    items.forEach(el => el.classList.add('hidden'));
+    msgs.querySelector('.typing')?.remove();
+    for (const el of items) {
+      if (id !== run) return;
+      const fromBot = el.classList.contains('bot') || el.classList.contains('slots') || el.classList.contains('confirm');
+      if (fromBot) {
+        const t = document.createElement('div');
+        t.className = 'typing'; t.innerHTML = '<i></i><i></i><i></i>';
+        msgs.appendChild(t); msgs.scrollTop = msgs.scrollHeight;
+        await wait(800);
+        t.remove();
+        if (id !== run) return;
+      }
+      el.classList.remove('hidden');
+      msgs.appendChild(el);
+      msgs.scrollTop = msgs.scrollHeight;
+      await wait(el.classList.contains('saved') ? 450 : 700);
+    }
+  }
+  document.getElementById('replay').addEventListener('click', playChat);
+  playChat();
+
+  // Dashboard: count up numbers, fill score ring and breakdown bars
+  function countUp(el) {
+    const end = +el.dataset.count, t0 = performance.now(), dur = 1100;
+    const step = now => {
+      const k = Math.min(1, (now - t0) / dur);
+      el.textContent = Math.round(end * (1 - Math.pow(1 - k, 3)));
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+  function animateDashboard() {
+    const ring = document.getElementById('ring');
+    const bars = document.querySelectorAll('.bar-fill');
+    if (still) { ring.style.setProperty('--p', 100); bars.forEach(b => b.style.width = b.dataset.w + '%'); return; }
+    document.querySelectorAll('#owner [data-count]').forEach(countUp);
+    ring.style.setProperty('--p', 0); bars.forEach(b => b.style.width = 0);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      ring.style.setProperty('--p', 100);
+      bars.forEach((b, i) => setTimeout(() => b.style.width = b.dataset.w + '%', 300 + i * 150));
+    }));
+  }
+
+  // Filters and slot picking
+  document.querySelectorAll('.filter').forEach(f => f.addEventListener('click', () => {
+    document.querySelectorAll('.filter').forEach(x => x.setAttribute('aria-pressed', x === f));
+    const tier = f.textContent.toLowerCase();
+    document.querySelectorAll('tbody tr').forEach(r => {
+      r.style.display = tier === 'all' || r.querySelector('.badge').textContent === tier ? '' : 'none';
+    });
+  }));
+  document.querySelectorAll('.slot').forEach(s => s.addEventListener('click', () => {
+    document.querySelectorAll('.slot').forEach(x => x.classList.toggle('picked', x === s));
+  }));
+</script>
+</body>
+</html>
