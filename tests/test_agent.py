@@ -52,6 +52,10 @@ def env():
     return store, cal, session
 
 
+def isos(slots):
+    return [x["iso"] for x in slots]
+
+
 def tool_contents(llm):
     return [m["content"] for call in llm.calls for m in call if m["role"] == "tool"]
 
@@ -131,7 +135,7 @@ def test_book_success_records_booking(env):
     rows = store.list_leads()
     assert len(rows) == 1 and rows[0]["booked_slot"] == slot
     results = [json.loads(c) for c in tool_contents(llm)]
-    assert results[0]["free_slots"] == offered
+    assert [x["iso"] for x in results[0]["free_slots"]] == offered
     assert results[1]["ok"] is True
 
 
@@ -177,7 +181,7 @@ def test_save_with_email_includes_free_slots(env):
     store, cal, session = env
     llm = StubLLM([msg(None, [tc("save_lead_fields", {"email": "a@b.co"})]), msg("x")])
     chat_turn([{"role": "user", "content": "hi"}], session, store, cal, llm)
-    assert json.loads(tool_contents(llm)[0])["free_slots"] == cal.free_slots()
+    assert isos(json.loads(tool_contents(llm)[0])["free_slots"]) == cal.free_slots()
 
 
 def test_slot_taken_returns_fresh_slots_to_model(env):
@@ -189,7 +193,7 @@ def test_slot_taken_returns_fresh_slots_to_model(env):
     out = chat_turn([{"role": "user", "content": "book"}], session, store, cal, llm)
     assert out == "Pick another"
     res = json.loads(tool_contents(llm)[0])
-    assert "error" in res and res["free_slots"] and slot not in res["free_slots"]
+    assert "error" in res and res["free_slots"] and slot not in isos(res["free_slots"])
     assert all(r["booked_slot"] is None for r in store.list_leads())
 
 
@@ -256,3 +260,66 @@ def test_llm_requires_api_key():
 
     with pytest.raises(RuntimeError, match="LLM_API_KEY"):
         OpenAICompatLLM(Settings("http://x", None, "m", None))
+
+
+def test_slots_carry_server_built_labels(env):
+    store, cal, session = env  # now = Mon 5 Jan 2026 09:00 UTC
+    llm = StubLLM([msg(None, [tc("save_lead_fields", {"email": "a@b.co"})]), msg("x")])
+    chat_turn([{"role": "user", "content": "hi"}], session, store, cal, llm)
+    slots = json.loads(tool_contents(llm)[0])["free_slots"]
+    assert slots[0] == {"iso": "2026-01-06T10:00:00+00:00", "label": "Tue 06 Jan, 10:00 UTC"}
+    assert session["offered_slots"] == slots
+
+
+def test_system_message_has_today_and_offered_slots(env):
+    store, cal, session = env
+    history = [{"role": "user", "content": "hi"}]
+    llm = StubLLM([msg(None, [tc("save_lead_fields", {"email": "a@b.co"})]), msg("Pick one")])
+    chat_turn(history, session, store, cal, llm)
+    first_system = llm.calls[0][0]["content"]
+    assert first_system.startswith("Today is Monday, 05 Jan 2026 (UTC).")
+    assert "Times currently offered" not in first_system
+    history.append({"role": "user", "content": "the second one"})
+    llm2 = StubLLM([msg("ok")])
+    chat_turn(history, session, store, cal, llm2)
+    system = llm2.calls[0][0]["content"]
+    assert "Times currently offered to the visitor:" in system
+    assert "Tue 06 Jan, 14:00 UTC = 2026-01-06T14:00:00+00:00" in system
+
+
+def test_failed_booking_refreshes_offered_slots(env):
+    store, cal, session = env
+    slot = cal.free_slots()[0]
+    cal.book(slot, "Other", "o@x.co")
+    session["fields"] = LeadFields(email="a@b.co")
+    llm = StubLLM([msg(None, [tc("book_meeting", {"slot_iso": slot})]), msg("x")])
+    chat_turn([{"role": "user", "content": "book"}], session, store, cal, llm)
+    assert isos(session["offered_slots"]) == cal.free_slots()
+
+
+class CountingCal(FakeCalendar):
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        self.book_calls = 0
+
+    def book(self, slot_iso, name, email):
+        self.book_calls += 1
+        return super().book(slot_iso, name, email)
+
+
+def test_only_one_booking_per_session():
+    store = Store(":memory:")
+    cal = CountingCal(now=lambda: datetime(2026, 1, 5, 9, 0, tzinfo=timezone.utc))
+    session = {"lead_id": None, "fields": LeadFields(email="a@b.co")}
+    first, second = cal.free_slots(2)
+    llm = StubLLM([
+        msg(None, [tc("book_meeting", {"slot_iso": first}, id="a")]),
+        msg(None, [tc("book_meeting", {"slot_iso": second}, id="b")]),
+        msg("done"),
+    ])
+    chat_turn([{"role": "user", "content": "book both"}], session, store, cal, llm)
+    res = [json.loads(m["content"]) for m in llm.calls[-1] if m["role"] == "tool"]
+    assert res[0]["ok"] is True and "error" in res[1]
+    assert cal.book_calls == 1
+    assert session["booked_slot"] == first
+    assert store.list_leads()[0]["booked_slot"] == first

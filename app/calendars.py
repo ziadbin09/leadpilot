@@ -15,6 +15,8 @@ class SlotTakenError(Exception):
 
 
 class Calendar(Protocol):
+    def now(self) -> datetime: ...
+
     def free_slots(self, n: int = 3) -> list[str]: ...
 
     def book(self, slot_iso: str, name: str, email: str) -> str: ...
@@ -55,6 +57,9 @@ class FakeCalendar:
         self._now = now
         self._booked: set[str] = set()
         self._lock = threading.Lock()
+
+    def now(self) -> datetime:
+        return self._now()
 
     def free_slots(self, n: int = 3) -> list[str]:
         with self._lock:

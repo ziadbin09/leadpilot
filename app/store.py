@@ -54,7 +54,8 @@ class Store:
                 own = self._db.execute(
                     "SELECT * FROM leads WHERE id = ?", (lead_id,)
                 ).fetchone()
-            if row is not None and own is not None and own["id"] != row["id"]                     and own["email"] is None:
+            if (row is not None and own is not None and own["id"] != row["id"]
+                    and own["email"] is None):
                 self._db.execute("DELETE FROM leads WHERE id = ?", (own["id"],))
             if row is None:
                 row = own
