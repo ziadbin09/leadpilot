@@ -10,7 +10,7 @@ Most website visitors leave without saying a word. The ones who do message you w
 
 LeadPilot replies in seconds, any time of day. It asks a few friendly questions (what they need, budget, timeline, whether they decide), saves the answers, scores the lead with clear rules, and books a slot on your calendar once it has a valid email. You open the dashboard and see who to call first, and why.
 
-![Demo GIF](docs/demo.gif) <!-- TODO: record a short demo GIF and save it as docs/demo.gif -->
+<!-- Add a demo GIF here: record the chat booking a call, save as docs/demo.gif -->
 
 ## How it works
 
@@ -41,7 +41,7 @@ Copy-Item .env.example .env
 **macOS / Linux**
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
@@ -112,7 +112,9 @@ Meetings are 30 minutes, in UTC, on weekdays at 10:00, 14:00 and 16:00. If Googl
 
 - **No authentication on `/leads` or the dashboard.** Add auth before using this with real clients.
 - Chat sessions live in memory: they reset when the server restarts, and only the most recent 1,000 are kept.
-- Leads are stored in a local SQLite file (`leads.db`, git-ignored).
+- Leads are stored in a local SQLite file (`leads.db` in the project folder, git-ignored).
+- Demo calendar bookings are kept in memory and reset when the server restarts (saved leads keep their booked time).
+- Typing an email that already belongs to a lead updates that lead, so anyone who knows a lead's email can add details to it.
 - On the Gemini free tier, Google may use your prompts to improve its models. Use demo data only, not real client details.
 
 ## Running the tests

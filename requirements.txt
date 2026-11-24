@@ -1,8 +1,8 @@
-fastapi
-uvicorn
-openai
-python-dotenv
-pytest
-httpx
-google-api-python-client
-google-auth
+fastapi>=0.110
+uvicorn>=0.29
+openai>=1.40
+python-dotenv>=1.0
+pytest>=8
+httpx>=0.27
+google-api-python-client>=2.100
+google-auth>=2.20

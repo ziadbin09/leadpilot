@@ -17,7 +17,9 @@ from app.store import Store
 
 log = logging.getLogger(__name__)
 
-STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+ROOT = Path(__file__).resolve().parent.parent
+STATIC_DIR = ROOT / "static"
+DB_PATH = ROOT / "leads.db"  # repo root, not the current working directory
 MAX_USER_MESSAGES = 20
 MAX_SESSIONS = 1000
 CAP_REPLY = (
@@ -50,7 +52,7 @@ class ChatIn(BaseModel):
 
 def create_app(settings: Settings | None = None, llm=None, store=None, cal=None) -> FastAPI:
     settings = settings or load_settings()
-    store = store or Store("leads.db")
+    store = store or Store(str(DB_PATH))
     cal = cal or get_calendar(settings)
     if llm is None and settings.api_key:
         llm = OpenAICompatLLM(settings)

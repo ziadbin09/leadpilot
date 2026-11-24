@@ -159,3 +159,11 @@ def test_capped_email_updates_the_sessions_anonymous_lead():
     leads = client.get("/leads").json()
     assert len(leads) == 1
     assert leads[0]["email"] == "bo@x.io" and leads[0]["need"] == "shop"
+
+
+def test_default_db_path_is_anchored_to_repo_root():
+    from pathlib import Path
+
+    from app import main
+
+    assert main.DB_PATH == Path(main.__file__).resolve().parent.parent / "leads.db"

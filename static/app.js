@@ -60,6 +60,15 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id: sessionId, message: text }),
       });
+      if (res.status === 503) {
+        // server not configured: show the server's own hint (plain text via addMsg/textContent)
+        const body = await res.json().catch(() => ({}));
+        if (typeof body.detail === 'string' && body.detail) {
+          typing.remove();
+          addMsg(body.detail, 'bot err');
+          return;
+        }
+      }
       if (!res.ok) throw new Error('http ' + res.status);
       const data = await res.json();
       typing.remove();
