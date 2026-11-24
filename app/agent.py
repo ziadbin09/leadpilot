@@ -182,6 +182,19 @@ def _run_tool(call, session: dict, store: Store, cal: Calendar) -> str:
         return json.dumps({"error": "tool failed"})
 
 
+def _echo_call(c) -> dict:
+    """The assistant's tool call as re-sent to the provider, keeping provider extras
+    (Gemini 3 requires its thought_signature in extra_content to be echoed back)."""
+    out = {"id": c.id, "type": "function",
+           "function": {"name": c.function.name, "arguments": c.function.arguments}}
+    extra = getattr(c, "extra_content", None)
+    if extra is None:
+        extra = (getattr(c, "model_extra", None) or {}).get("extra_content")
+    if extra is not None:
+        out["extra_content"] = extra
+    return out
+
+
 def _fail(e: Exception) -> str:
     status = getattr(e, "status_code", None)
     log.error("LLM call failed: %s%s", type(e).__name__, f" (status {status})" if status else "")
@@ -204,11 +217,7 @@ def chat_turn(history: list[dict], session: dict, store: Store, cal: Calendar, l
         messages.append({
             "role": "assistant",
             "content": m.content or "",
-            "tool_calls": [
-                {"id": c.id, "type": "function",
-                 "function": {"name": c.function.name, "arguments": c.function.arguments}}
-                for c in calls
-            ],
+            "tool_calls": [_echo_call(c) for c in calls],
         })
         for c in calls:
             messages.append(

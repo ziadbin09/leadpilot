@@ -323,3 +323,68 @@ def test_only_one_booking_per_session():
     assert cal.book_calls == 1
     assert session["booked_slot"] == first
     assert store.list_leads()[0]["booked_slot"] == first
+
+
+def test_tool_call_round_trip_has_openai_shape(env):
+    store, cal, session = env
+    llm = StubLLM([
+        msg("thinking", [tc("save_lead_fields", {"need": "app"}, id="x1"),
+                         tc("save_lead_fields", {"name": "Bo"}, id="x2")]),
+        msg("ok"),
+    ])
+    chat_turn([{"role": "user", "content": "hi"}], session, store, cal, llm)
+    sent = llm.calls[1]
+    assistant = sent[2]
+    assert assistant["role"] == "assistant" and assistant["content"] == "thinking"
+    assert assistant["tool_calls"] == [
+        {"id": "x1", "type": "function",
+         "function": {"name": "save_lead_fields", "arguments": json.dumps({"need": "app"})}},
+        {"id": "x2", "type": "function",
+         "function": {"name": "save_lead_fields", "arguments": json.dumps({"name": "Bo"})}},
+    ]
+    tools = sent[3:]
+    assert [m["role"] for m in tools] == ["tool", "tool"]
+    assert [m["tool_call_id"] for m in tools] == ["x1", "x2"]
+
+
+def test_provider_extra_content_is_passed_back(env):
+    # Gemini 3 needs its thought_signature echoed on the next request
+    store, cal, session = env
+    extra = {"google": {"thought_signature": "sig=="}}
+    call = tc("save_lead_fields", {"need": "app"}, id="g1")
+    call.extra_content = extra
+    llm = StubLLM([msg(None, [call]), msg("ok")])
+    chat_turn([{"role": "user", "content": "hi"}], session, store, cal, llm)
+    assert llm.calls[1][2]["tool_calls"][0]["extra_content"] == extra
+
+
+def test_extra_content_from_sdk_pydantic_object(env):
+    from openai.types.chat import ChatCompletionMessage
+
+    store, cal, session = env
+    extra = {"google": {"thought_signature": "sig=="}}
+    m = ChatCompletionMessage.model_validate({
+        "role": "assistant", "content": None,
+        "tool_calls": [{"id": "g1", "type": "function", "extra_content": extra,
+                        "function": {"name": "save_lead_fields", "arguments": '{"need": "app"}'}}],
+    })
+    llm = StubLLM([m, msg("ok")])
+    chat_turn([{"role": "user", "content": "hi"}], session, store, cal, llm)
+    sent = llm.calls[1][2]["tool_calls"][0]
+    assert sent["extra_content"] == extra
+    json.dumps(sent)  # must stay serialisable for the HTTP request
+
+
+def test_no_extra_content_key_when_absent(env):
+    store, cal, session = env
+    llm = StubLLM([msg(None, [tc("save_lead_fields", {"need": "app"})]), msg("ok")])
+    chat_turn([{"role": "user", "content": "hi"}], session, store, cal, llm)
+    assert "extra_content" not in llm.calls[1][2]["tool_calls"][0]
+
+
+def test_llm_client_retries_at_most_once():
+    from app.config import Settings
+    from app.llm import OpenAICompatLLM
+
+    llm = OpenAICompatLLM(Settings("http://localhost:9", "test-key", "m", None))
+    assert llm._client.max_retries == 1
