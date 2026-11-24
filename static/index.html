@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LeadPilot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<div class="bg" aria-hidden="true"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+
+<header class="bar">
+  <div class="brand"><div class="logo" aria-hidden="true">◆</div><span class="brand-text">LeadPilot</span></div>
+  <div class="tabs" role="tablist" aria-label="View">
+    <span class="pill" aria-hidden="true"></span>
+    <button class="tab" role="tab" aria-selected="true" data-view="visitor">Visitor chat</button>
+    <button class="tab" role="tab" aria-selected="false" data-view="owner">Owner dashboard</button>
+  </div>
+</header>
+
+<!-- VISITOR VIEW -->
+<main id="visitor" class="view active">
+  <section class="site">
+    <div>
+      <div class="eyebrow rise">Demo client · Northwind Studio (fictional)</div>
+      <h1 class="rise" style="animation-delay:.1s">Websites and apps that <span class="shine">actually bring in customers.</span></h1>
+      <p class="lead rise" style="animation-delay:.2s">Tell our assistant what you need. It asks a few quick questions and books a call with our team, any time of day.</p>
+      <div class="chips rise" style="animation-delay:.3s"><span class="chip">Replies in seconds</span><span class="chip">Books straight to the calendar</span><span class="chip">Scores every lead</span></div>
+      <p class="note rise" style="animation-delay:.4s">This is a demo using the sample company Northwind Studio (fictional). Please don't share real personal details.</p>
+    </div>
+
+    <div class="chat" aria-label="Chat with the assistant">
+      <div class="chat-head">
+        <div class="avatar" aria-hidden="true">A</div>
+        <div><div class="name">Ava, project assistant</div><div class="status">Online</div></div>
+      </div>
+      <div class="msgs" id="msgs" role="log" aria-live="polite">
+        <div class="msg bot">Hi! 👋 I'm Ava. What are you looking to build?</div>
+      </div>
+      <form class="composer" id="composer">
+        <label for="m" class="sr">Message</label>
+        <input id="m" placeholder="Type your message…" maxlength="1000" autocomplete="off">
+        <button class="send" id="send" type="submit">Send</button>
+      </form>
+      <div class="powered">AI assistant · your details are used only to contact you</div>
+    </div>
+  </section>
+</main>
+
+<!-- OWNER VIEW -->
+<main id="owner" class="view">
+  <section class="dash">
+    <h2>Leads</h2>
+    <p class="sub">Every chat, scored and ready to follow up.</p>
+
+    <div class="stats">
+      <div class="stat"><div class="label">Total leads</div><div class="value" id="s-total">0</div></div>
+      <div class="stat"><div class="label">Hot leads</div><div class="value" id="s-hot">0</div></div>
+      <div class="stat"><div class="label">Calls booked</div><div class="value" id="s-booked">0</div></div>
+      <div class="stat"><div class="label">Avg. score</div><div class="value" id="s-avg">0</div></div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="card-head">
+          <span>Recent leads</span>
+          <div class="filters" role="group" aria-label="Filter by tier">
+            <button class="filter" aria-pressed="true" data-tier="all">All</button>
+            <button class="filter" aria-pressed="false" data-tier="hot">Hot</button>
+            <button class="filter" aria-pressed="false" data-tier="warm">Warm</button>
+            <button class="filter" aria-pressed="false" data-tier="cold">Cold</button>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>Lead</th><th class="hide-sm">Need</th><th>Score</th><th>Tier</th><th class="hide-sm">Meeting</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="empty" id="empty" hidden></div>
+      </div>
+
+      <aside class="card" id="detail-card" hidden>
+        <div class="card-head"><span id="d-title"></span></div>
+        <div class="detail">
+          <div class="score-ring">
+            <div class="ring" id="ring"><span id="d-score">0</span></div>
+            <div><span class="badge" id="d-tier"></span><div class="why">Score from clear rules, not AI guesswork</div></div>
+          </div>
+          <ul class="breakdown" id="d-breakdown"></ul>
+          <p class="kv">Need: <b id="d-need"></b></p>
+          <p class="kv">Meeting: <b id="d-meeting"></b></p>
+          <p class="kv">Captured: <b id="d-created"></b></p>
+        </div>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
